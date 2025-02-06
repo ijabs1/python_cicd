@@ -2,19 +2,17 @@ pipeline {
     agent any
     
     environment {
-        // Use credentials binding for Docker Hub
         DOCKER_REGISTRY = 'docker.io'
         DOCKER_REPO = 'asaoluolalekan1'
-        DOCKER_CREDS = credentials('docker-hub-credentials')
     }
-    
+
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
-        
+
         stage('Build') {
             steps {
                 sh '''
@@ -23,51 +21,56 @@ pipeline {
                 '''
             }
         }
-        
+
         stage('Test') {
             steps {
                 sh 'python3 -m pytest test/'
             }
         }
-        
+
         stage('Build Docker Image') {
             steps {
                 script {
-                    def imageTag = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
+                    // Replace invalid characters in branch name
+                    def sanitizedBranch = env.BRANCH_NAME.replaceAll('/', '-').toLowerCase()
+                    def imageTag = "${sanitizedBranch}-${env.BUILD_NUMBER}"
+
                     sh """
                         docker build -t ${DOCKER_REGISTRY}/${DOCKER_REPO}:${imageTag} .
                     """
                 }
             }
         }
-        
+
         stage('Push to Docker Registry') {
             steps {
                 script {
-                    def imageTag = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
-                    // Secure Docker login
-                    sh '''
-                        echo ${DOCKER_CREDS_PSW} | docker login ${DOCKER_REGISTRY} -u ${DOCKER_CREDS_USR} --password-stdin
-                    '''
-                    // Push image
+                    def sanitizedBranch = env.BRANCH_NAME.replaceAll('/', '-').toLowerCase()
+                    def imageTag = "${sanitizedBranch}-${env.BUILD_NUMBER}"
+
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh '''
+                            echo "$DOCKER_PASS" | docker login ${DOCKER_REGISTRY} -u "$DOCKER_USER" --password-stdin
+                        '''
+                    }
+
                     sh """
                         docker push ${DOCKER_REGISTRY}/${DOCKER_REPO}:${imageTag}
                     """
-                    // Cleanup: remove login credentials
+
                     sh 'docker logout ${DOCKER_REGISTRY}'
                 }
             }
         }
     }
-    
+
     post {
         always {
-            // Clean up workspace
             cleanWs()
-            
-            // Clean up Docker images
             script {
-                def imageTag = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
+                def sanitizedBranch = env.BRANCH_NAME.replaceAll('/', '-').toLowerCase()
+                def imageTag = "${sanitizedBranch}-${env.BUILD_NUMBER}"
+
                 sh """
                     docker rmi ${DOCKER_REGISTRY}/${DOCKER_REPO}:${imageTag} || true
                     docker system prune -f || true
