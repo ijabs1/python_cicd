@@ -3,7 +3,7 @@ pipeline {
     
     environment {
         DOCKER_REGISTRY = 'docker.io'
-        DOCKER_REPO = 'asaoluolalekan1'
+        DOCKER_REPO = 'asaoluolalekan1/python_app'
     }
 
     stages {
