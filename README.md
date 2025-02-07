@@ -24,4 +24,4 @@ This is a simple Flask application demonstrating a CI/CD pipeline with Jenkins.
 docker build -t flask-jenkins-demo .
 docker run -p 5009:5009 flask-jenkins-demo
 ```
-#Just testing my multi branching 
+#Just testing my multi branching pipeline
